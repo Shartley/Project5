@@ -11,3 +11,8 @@ Godot 4 project using the **Compatibility** renderer (GL Compatibility).
 
 The main scene is an empty starter scene. Generated Godot cache files and exported builds are excluded from version control.
 
+## Team
+
+| Name | GitHub |
+| --- | --- |
+| Rickey Johnson | [rickeyjohnson](https://github.com/rickeyjohnson) |

@@ -10,3 +10,4 @@ Godot 4 project using the **Compatibility** renderer (GL Compatibility).
 4. Press **F6** to run `scenes/main.tscn`, or **F5** to run the project.
 
 The main scene is an empty starter scene. Generated Godot cache files and exported builds are excluded from version control.
+

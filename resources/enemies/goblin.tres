@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "goblin"
+display_name = "Goblin"
+health = 40.0
+damage = 10.0
+armor = 0.0
+speed = 2
+reach = 1.8
+windup = 0.8
+color = Color(0.47058823529411764, 0.6196078431372549, 0.5019607843137255, 1)

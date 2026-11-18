@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "spitter"
+display_name = "Spitter"
+health = 30.0
+damage = 8.0
+armor = 0.0
+speed = 1.5
+reach = 8
+windup = 1
+color = Color(0.6078431372549019, 0.47058823529411764, 0.6666666666666666, 1)

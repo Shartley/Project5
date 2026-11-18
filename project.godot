@@ -20,7 +20,15 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [autoload]
 
+PlayerStats="*res://scripts/player_stats.gd"
+Progress="*res://scripts/progress.gd"
 MCPGameBridge="res://addons/godot_mcp/game_bridge/mcp_game_bridge.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
 
 [editor_plugins]
 
@@ -37,3 +45,8 @@ port_override=6550
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+
+[xr]
+
+openxr/default_action_map="res://resources/quest_actions.tres"
+shaders/enabled=true

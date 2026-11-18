@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "centipede"
+display_name = "Giant Centipede"
+health = 40.0
+damage = 8.0
+armor = 0.0
+speed = 2.5
+reach = 1.8
+windup = 0.7
+color = Color(0.7215686274509804, 0.5019607843137255, 0.40784313725490196, 1)

@@ -1,0 +1,86 @@
+name: Build and deploy Godot to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install official Godot and matching web template
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          cd "$RUNNER_TEMP/godot"
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          editor="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          templates="Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          curl --fail --location --retry 3 "$base/$editor" --output "$editor"
+          curl --fail --location --retry 3 "$base/$templates" --output "$templates"
+          curl --fail --location --retry 3 "$base/SHA512-SUMS.txt" --output SHA512-SUMS.txt
+          grep -F -e " $editor" -e " $templates" SHA512-SUMS.txt | sha512sum --check
+          unzip -q "$editor"
+          chmod +x "Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          ln -s "$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" "$RUNNER_TEMP/godot/godot"
+          echo "$RUNNER_TEMP/godot" >> "$GITHUB_PATH"
+          unzip -j -q "$templates" templates/web_nothreads_debug.zip -d "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+
+      - name: Import and test the project
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --path . --xr-mode off --editor --import --quit 2>&1 | tee "$RUNNER_TEMP/import.log"
+          if grep -E 'SCRIPT ERROR:|Failed to load script' "$RUNNER_TEMP/import.log"; then exit 1; fi
+          godot --headless --path . --xr-mode off --script tests/run_tests.gd 2>&1 | tee "$RUNNER_TEMP/tests.log"
+          if grep -E 'SCRIPT ERROR:|FAIL:' "$RUNNER_TEMP/tests.log"; then exit 1; fi
+          grep -E 'ROCKY TESTS: [0-9]+ checks, 0 failures' "$RUNNER_TEMP/tests.log"
+
+      - name: Export the browser test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p exports/web
+          godot --headless --path . --xr-mode off --export-debug Web exports/web/index.html 2>&1 | tee "$RUNNER_TEMP/export.log"
+          if grep -E 'SCRIPT ERROR:|Failed to load script' "$RUNNER_TEMP/export.log"; then exit 1; fi
+          test -s exports/web/index.html
+          test -s exports/web/index.pck
+          test -s exports/web/index.wasm
+          touch exports/web/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: exports/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check Pages configuration
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

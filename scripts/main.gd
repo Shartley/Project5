@@ -494,10 +494,36 @@ func resolve_attack(enemy: CharacterBody3D) -> void:
 
 func desktop_hit() -> void:
 	var from: Vector3 = player.camera.global_position
-	var query := PhysicsRayQueryParameters3D.create(from, from - player.camera.global_basis.z * 2.2, 3)
+	var forward: Vector3 = -player.camera.global_basis.z
+	var swing := float(Rules.attack_profile(player.swing_heavy).swing)
+	var query := PhysicsRayQueryParameters3D.create(from, from + forward * 2.2, 3)
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if not hit.is_empty() and hit.collider in enemies:
-		hit_enemy(hit.collider, float(Rules.attack_profile(player.swing_heavy).swing), hit.position)
+		hit_enemy(hit.collider, swing, hit.position)
+		return
+	# Forgiving aim: if the 2.2 m ray misses, take the nearest enemy whose body stands within
+	# 0.45 m of the aim line (seen from above), so a short Kobold right in front still gets hit
+	# without aiming at its feet. Aiming over its head counts as a torso hit, not a head hit.
+	var flat := Vector2(forward.x, forward.z)
+	if flat.length() < 0.2:
+		return
+	var direction := flat.normalized()
+	var best: CharacterBody3D = null
+	var best_along := INF
+	for enemy in enemies:
+		var offset := Vector2(enemy.global_position.x - from.x, enemy.global_position.z - from.z)
+		var along := offset.dot(direction)
+		if along < 0.0 or along > 2.5 or along >= best_along:
+			continue
+		if (offset - direction * along).length() <= 0.45:
+			best = enemy
+			best_along = along
+	if best == null:
+		return
+	var aim_height: float = from.y + forward.y * best_along / flat.length() - best.global_position.y
+	if aim_height > best.body_height or aim_height < 0.0:
+		aim_height = best.body_height * 0.6
+	hit_enemy(best, swing, best.global_position + Vector3(0, aim_height, 0))
 
 ## Rickey's damage (GDD 2.1): base x swing x Strength x zone x crit - armor. `point` is where
 ## the blow landed; its height on the body picks head, torso or limb.
@@ -647,6 +673,9 @@ func debug_command(command: String) -> void:
 		"potions":
 			for kind: String in PlayerStats.POTION_CAPS: PlayerStats.add_potion(kind, 5)
 		"awake": awake_override = not awake_override
+		"portals":
+			Progress.portals_open = true
+			Progress.changed.emit()
 		"warren", "nest": Progress.register_gate_clear(command)
 		"shadow": Progress.register_stored_shadow_type("spitter")
 		"penalty":

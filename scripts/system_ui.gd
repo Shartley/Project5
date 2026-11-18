@@ -271,7 +271,7 @@ func show_page(id: String) -> void:
 		"debug":
 			page_title.text = "SYSTEM / TEST CONTROLS"
 			paragraph("These controls change this session. Reset restores all starting values and rewards.", GOLD)
-			var commands := {"xp": "+200 XP", "points": "+5 stat points", "damage": "Take 25 damage", "low_hp": "Level 5 / low HP scenario", "mp": "Empty MP", "fatigue": "Fatigue 100 / lock sprint and dash", "rest": "Advance resource recovery 5 seconds", "potions": "Refill potion inventory", "awake": "Toggle awake-enemy test override", "warren": "Simulate Warren clear", "nest": "Simulate Nest clear", "shadow": "Simulate stored Spitter shadow", "penalty": "Enter Penalty Zone", "advance_penalty": "Advance Penalty clock 30 seconds", "mastery": "Set up 6 Perfect / 3 late round", "simulate_squat": "Replay XR squat sample", "simulate_punch": "Replay XR punch sample", "reset": "Reset entire session"}
+			var commands := {"xp": "+200 XP", "points": "+5 stat points", "damage": "Take 25 damage", "low_hp": "Level 5 / low HP scenario", "mp": "Empty MP", "fatigue": "Fatigue 100 / lock sprint and dash", "rest": "Advance resource recovery 5 seconds", "potions": "Refill potion inventory", "awake": "Toggle awake-enemy test override", "portals": "Open portals (skip the workout)", "warren": "Simulate Warren clear", "nest": "Simulate Nest clear", "shadow": "Simulate stored Spitter shadow", "penalty": "Enter Penalty Zone", "advance_penalty": "Advance Penalty clock 30 seconds", "mastery": "Set up 6 Perfect / 3 late round", "simulate_squat": "Replay XR squat sample", "simulate_punch": "Replay XR punch sample", "reset": "Reset entire session"}
 			for command: String in commands:
 				button(body, commands[command], func(): action.emit("debug", command))
 

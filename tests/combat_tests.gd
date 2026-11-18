@@ -23,6 +23,7 @@ func _initialize() -> void:
 	test_enemy_rules()
 	test_encounter()
 	await test_scene()
+	await test_forgiving_aim()
 	print("COMBAT TESTS: %d checks, %d failures" % [checks, failures.size()])
 	quit(0 if failures.is_empty() else 1)
 
@@ -147,5 +148,29 @@ func test_scene() -> void:
 	check(game.encounter.active == 0, "The encounter counts the kill")
 	game.change_room("hub")
 	check(not game.encounter.running, "Leaving the Warren stops its encounter")
+	game.queue_free()
+	await process_frame
+
+
+func test_forgiving_aim() -> void:
+	var game = load("res://scenes/main.tscn").instantiate()
+	root.add_child(game)
+	game.set_physics_process(false)
+	await process_frame
+	game.set_menu("")
+	game.change_room("warren")
+	game.player.place_at(Vector3(0, 0.05, 2.0))
+	var kobold = game.spawn_enemy("kobold", Vector3(0.2, 0, 0.9), false)
+	await physics_frame
+	await physics_frame
+	var before: float = kobold.hp
+	game.player.swing_heavy = false
+	game.desktop_hit()
+	check(kobold.hp < before, "A short Kobold right in front is hit while looking straight ahead")
+	check(before - kobold.hp in [10.0, 15.0], "An assisted hit over its head counts as a torso hit (10, or 15 on a crit), not a head hit")
+	var far = game.spawn_enemy("kobold", Vector3(2.5, 0, 0.0), false)
+	var far_hp: float = far.hp
+	game.desktop_hit()
+	check(far.hp == far_hp, "An enemy well off the aim line is not hit")
 	game.queue_free()
 	await process_frame

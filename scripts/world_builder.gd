@@ -10,6 +10,7 @@ const FLOOR_MATERIAL = preload("res://assets/materials/warren_floor.tres")
 const STONE_MATERIAL = preload("res://assets/materials/warren_pillar.tres")
 var portal_material: StandardMaterial3D
 var portal: Node3D
+var exit_portal: Node3D
 var pad: MeshInstance3D
 var punch_targets: Array[Node3D] = []
 
@@ -53,6 +54,9 @@ static func label(parent: Node3D, text: String, location: Vector3, size: int = 4
 
 func build(kind: String) -> void:
 	var extent := 3.0 if kind == "hub" else (5.0 if kind == "training" else 10.0)
+	if kind == "warren":
+		build_warren(extent)
+		return
 	if kind != "hub":
 		build_stone_room(kind, extent)
 		return
@@ -114,6 +118,55 @@ func build_stone_room(kind: String, extent: float) -> void:
 	add_child(probe)
 	label(self, "PRACTICE CHAMBER" if kind == "training" else "PENALTY ZONE", Vector3(0, 2.3, -extent + 0.14), 58, BLUE if kind == "training" else GOLD)
 	label(self, "READ THE WIND-UP. FIND YOUR MOMENT." if kind == "training" else "SURVIVE 180 SECONDS", Vector3(0, 1.9, -extent + 0.13), 24)
+
+## The Goblin Warren as one Black Hall arena (Rickey's combat test until gate.gd builds the real
+## rooms): open stone floor inside invisible walls, rings of pillars fading into the fog, crystals
+## along the sides and none at the far end, so enemies walk out of the dark.
+func build_warren(extent: float) -> void:
+	var ground := box(self, Vector3(0, -0.15, 0), Vector3(extent * 2, 0.3, extent * 2), Color("1c2e41"), true)
+	ground.visible = false
+	var floor_mesh := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(60, 60)
+	floor_mesh.mesh = plane
+	var floor_material: BaseMaterial3D = FLOOR_MATERIAL.duplicate()
+	floor_material.uv1_scale = Vector3(30, 30, 1)
+	floor_mesh.material_override = floor_material
+	add_child(floor_mesh)
+	for side in [-1, 1]:  # invisible edges keep the fight inside the lit area
+		box(self, Vector3(side * extent, 1.5, 0), Vector3(0.2, 3.0, extent * 2), NAVY, true).visible = false
+		box(self, Vector3(0, 1.5, side * extent), Vector3(extent * 2, 3.0, 0.2), NAVY, true).visible = false
+	var rows := [-17.0, -11.5, -5.75, 0.0, 5.75, 11.5, 17.0]
+	for x in rows:
+		for z in rows:
+			if maxf(absf(x), absf(z)) < 11.5:
+				continue
+			var pillar: Node3D = PILLAR_SCENE.instantiate()
+			pillar.position = Vector3(x, 0, z)
+			add_child(pillar)
+	for x in [-11.5, 11.5]:  # crystals on the side pillars only: the far end stays dark
+		for z in [-5.75, 0.0, 5.75]:
+			var facing := Vector3(-signf(x), 0, 0)
+			var crystal: Node3D = CRYSTAL_SCENE.instantiate()
+			add_child(crystal)
+			crystal.position = Vector3(x, 2.1, z) + facing * 0.65
+			crystal.look_at(crystal.position - facing, Vector3.UP)
+	var probe := ReflectionProbe.new()
+	probe.size = Vector3(24, 6, 24)
+	probe.position = Vector3(0, 2.5, 0)
+	probe.interior = true
+	add_child(probe)
+	exit_portal = PORTAL_SCENE.instantiate()
+	add_child(exit_portal)
+	exit_portal.position = Vector3(0, 0, -9.2)
+	exit_portal.visible = false
+	exit_portal.active = false
+
+## Shows the exit portal after the boss and returns its entry area so main.gd can listen to it.
+func open_exit() -> Area3D:
+	exit_portal.visible = true
+	exit_portal.active = true
+	return exit_portal.get_node("EnterArea")
 
 func build_hub() -> void:
 	portal = PORTAL_SCENE.instantiate()

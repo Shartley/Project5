@@ -51,6 +51,9 @@ jobs:
           godot --headless --path . --xr-mode off --script tests/run_tests.gd 2>&1 | tee "$RUNNER_TEMP/tests.log"
           if grep -E 'SCRIPT ERROR:|FAIL:' "$RUNNER_TEMP/tests.log"; then exit 1; fi
           grep -E 'ROCKY TESTS: [0-9]+ checks, 0 failures' "$RUNNER_TEMP/tests.log"
+          godot --headless --path . --xr-mode off --script tests/combat_tests.gd 2>&1 | tee "$RUNNER_TEMP/combat.log"
+          if grep -E 'SCRIPT ERROR:|FAIL:' "$RUNNER_TEMP/combat.log"; then exit 1; fi
+          grep -E 'COMBAT TESTS: [0-9]+ checks, 0 failures' "$RUNNER_TEMP/combat.log"
 
       - name: Export the browser test build
         shell: bash

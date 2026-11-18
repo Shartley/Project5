@@ -10,6 +10,8 @@ const Penalty = preload("res://scripts/models/penalty.gd")
 const Gestures = preload("res://scripts/models/gesture_detector.gd")
 const Audio = preload("res://scripts/system_audio.gd")
 const DUNGEON_ENVIRONMENT = preload("res://assets/environment/black_hall.tres")
+const Rules = preload("res://scripts/models/combat_rules.gd")
+const Encounter = preload("res://scripts/models/encounter.gd")
 const XR_PANEL_SIZE := Vector2(1.0, 0.5625)
 const XR_PANEL_DISTANCE := 0.75
 var room: String = "hub"
@@ -50,6 +52,10 @@ var world_environment: WorldEnvironment
 var hub_environment: Environment
 var sun: DirectionalLight3D
 var player_light: OmniLight3D
+var encounter := Encounter.new()
+var rng := RandomNumberGenerator.new()
+## Rank of the gate being played; sets kill XP (E x1, D x3).
+var gate_rank: String = "E"
 
 func _ready() -> void:
 	preload("res://scripts/input_bindings.gd").install()
@@ -101,6 +107,10 @@ func _ready() -> void:
 	workout.rep_completed.connect(func(_count: int): audio.play_cue("good"))
 	gestures.gesture.connect(func(kind: String): workout.submit(kind, true))
 	penalty.spawn_requested.connect(spawn_centipede)
+	encounter.spawn_requested.connect(spawn_from_dark)
+	encounter.wave_started.connect(func(_index: int, title: String): ui.notify("GOBLIN WARREN  /  %s" % title); audio.play_cue("warning"))
+	encounter.wave_cleared.connect(func(_index: int, title: String): ui.notify("%s CLEARED" % title); audio.play_cue("good"))
+	encounter.cleared.connect(finish_warren)
 	penalty.finished.connect(func(): finish_penalty(true))
 	practice.round_completed.connect(func(_perfect: int, _total: int, enemy_type: String):
 		if not enemy_type.is_empty(): Progress.award_mastery(enemy_type)
@@ -169,7 +179,14 @@ func change_room(kind: String) -> void:
 	apply_room_mood(kind)
 	world.set_portal_open(Progress.portals_open)
 	player.in_hub = kind == "hub"
-	player.place_at(Vector3(0, 0.05, 1.9 if kind == "hub" else 2.5))
+	player.place_at(Vector3(0, 0.05, 1.9 if kind == "hub" else (7.5 if kind == "warren" else 2.5)))
+	if kind == "hub" and is_instance_valid(world.portal):
+		var entrance: Area3D = world.portal.get_node("EnterArea")
+		entrance.collision_mask = 4  # the player rig's layer
+		entrance.body_entered.connect(_on_hub_portal_entered)
+	if kind == "warren":
+		gate_rank = "E"
+		encounter.start(Encounter.WARREN)
 	PlayerStats.set_sprinting(false)
 	PlayerStats.set_awake_enemy_count(0)
 	gestures.clear_history()
@@ -185,6 +202,7 @@ func clear_enemies() -> void:
 			enemy.get_parent().remove_child(enemy)
 			enemy.queue_free()
 	enemies.clear()
+	encounter.stop()
 	PlayerStats.set_awake_enemy_count(0)
 
 func set_menu(id: String) -> void:
@@ -218,6 +236,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	for id in ["interact", "health_potion", "mana_potion", "tonic_potion", "squat", "punch_left", "punch_right", "attack", "block"]:
 		if event.is_action_pressed(id):
 			handle_intent(id)
+	if event.is_action_released("attack"):
+		handle_intent("attack_release")
 
 func handle_intent(id: String) -> void:
 	match id:
@@ -233,13 +253,18 @@ func handle_intent(id: String) -> void:
 						if player.global_position.distance_to(Vector3.ZERO) < 1.7 or xr_enabled:
 							start_workout()
 						else: ui.notify("Walk onto the blue workout pad, then press E.")
-					elif room == "hub": ui.notify("Portals unlocked. Full gates arrive with Samaii's integration; Training is playable now.")
+					elif room == "hub": ui.notify("Portals unlocked. Walk into the portal to enter the Goblin Warren.")
 				"squat":
 					if workout.active: workout.submit("squat")
 					else: player.dash(PlayerStats)
 				"punch_left", "punch_right": workout.submit("punch")
 				"attack":
-					if not workout.active and player.start_swing(): swing_hit = false
+					# Light attack on a click, heavy when held 0.5 s and released (GDD 2.1).
+					if not workout.active and player.swing_time < 0.0: player.charge = 0.0
+				"attack_release":
+					if player.charge >= 0.0:
+						var heavy: bool = player.charge >= Rules.HEAVY_HOLD
+						if player.start_swing(heavy): swing_hit = false
 				"block": record_defense_attempt()
 				"health_potion", "drink_health": PlayerStats.use_potion("health")
 				"mana_potion", "drink_mana": PlayerStats.use_potion("mana")
@@ -383,11 +408,12 @@ func simulate(delta: float) -> void:
 			audio.play_cue("beat")
 		if xr_enabled: sample_xr_workout()
 	penalty.advance(delta)
+	if room == "warren": encounter.advance(delta)
 	if pending_return: return
 	update_enemies(delta)
 	if xr_enabled:
 		update_xr_combat()
-	elif player.swing_time >= 0.1 and player.swing_time <= 0.25 and not swing_hit:
+	elif Rules.attack_active(player.swing_heavy, player.swing_time) and not swing_hit:
 		swing_hit = true
 		desktop_hit()
 	if PlayerStats.hp < PlayerStats.max_hp() * 0.3 and now >= heart_at:
@@ -402,14 +428,19 @@ func update_enemies(delta: float) -> void:
 		if not is_instance_valid(enemy) or PlayerStats.dead: continue
 		match enemy.state:
 			"approach":
-				enemy.approach(player.camera.global_position, delta)
 				var target: Vector3 = player.camera.global_position
 				target.y = 0.0
-				if now >= enemy.ready_at and tokens < 2 and enemy.global_position.distance_to(target) <= enemy.definition.reach:
-					next_attack_id += 1
-					enemy.begin_attack(now, practice.speed if room == "training" else 1.0, next_attack_id, target)
-					audio.play_cue("warning", enemy.global_position)
-					tokens += 1
+				# Without a free attack token an enemy circles at 3 m and asks again every 2 s (GDD 2.2).
+				var wants_attack: bool = room == "training" or (now >= enemy.ready_at and tokens < Rules.ATTACK_TOKENS)
+				enemy.approach(player.camera.global_position, delta, wants_attack)
+				if now >= enemy.ready_at and enemy.global_position.distance_to(target) <= enemy.definition.reach:
+					if tokens < Rules.ATTACK_TOKENS:
+						next_attack_id += 1
+						enemy.begin_attack(now, practice.speed if room == "training" else 1.0, next_attack_id, target)
+						audio.play_cue("warning", enemy.global_position)
+						tokens += 1
+					else:
+						enemy.ready_at = now + Rules.TOKEN_RETRY
 			"windup":
 				enemy.animate_windup(now)
 				if now >= enemy.impact_at:
@@ -464,17 +495,100 @@ func desktop_hit() -> void:
 	var query := PhysicsRayQueryParameters3D.create(from, from - player.camera.global_basis.z * 2.2, 3)
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if not hit.is_empty() and hit.collider in enemies:
-		hit_enemy(hit.collider, 1.0)
+		hit_enemy(hit.collider, float(Rules.attack_profile(player.swing_heavy).swing), hit.position)
 
-func hit_enemy(enemy: CharacterBody3D, multiplier: float) -> void:
-	var damage := roundf(10.0 * PlayerStats.damage_multiplier() * multiplier)
-	var killed: bool = enemy.take_hit(damage)
-	audio.play_cue("hit", enemy.global_position)
-	ui.notify("%d damage%s" % [maxi(0, int(damage - enemy.definition.armor)), " / invulnerable training target" if room == "training" else ""])
-	if killed:
-		enemies.erase(enemy)
-		enemy.queue_free()
-		penalty.enemy_removed()
+## Rickey's damage (GDD 2.1): base x swing x Strength x zone x crit - armor. `point` is where
+## the blow landed; its height on the body picks head, torso or limb.
+func hit_enemy(enemy: CharacterBody3D, multiplier: float, point: Vector3 = Vector3.INF) -> void:
+	if not is_instance_valid(enemy) or enemy.state == "dying":
+		return
+	if not point.is_finite():
+		point = enemy.global_position + Vector3(0, enemy.body_height * 0.6, 0)
+	var zone := Rules.zone_for_height(point.y - enemy.global_position.y, enemy.body_height)
+	var crit := rng.randf() < PlayerStats.crit_chance()
+	var raw := float(Rules.damage(Rules.RUSTY_DAGGER, multiplier, PlayerStats.damage_multiplier(), zone, crit, 0.0))
+	var result: Dictionary = enemy.receive_hit(raw, now)
+	audio.play_cue("hit", point)
+	spark(point, crit)
+	if room == "training":
+		ui.notify("%d damage / invulnerable training target" % maxi(0, int(raw - enemy.definition.armor)))
+		return
+	damage_number(point, int(result.dealt), crit, zone)
+	if result.killed:
+		kill_enemy(enemy)
+	elif enemy.definition.id == "chieftain" and not enemy.summoned and enemy.hp <= enemy.definition.health * 0.5 and room == "warren":
+		enemy.summoned = true
+		encounter.add_reinforcements(["kobold", "kobold"])
+		ui.notify("THE CHIEFTAIN CALLS FOR HELP")
+
+func kill_enemy(enemy: CharacterBody3D) -> void:
+	enemies.erase(enemy)
+	enemy.die()
+	penalty.enemy_removed()
+	if room != "warren":
+		return
+	encounter.enemy_removed()
+	var xp := Rules.kill_xp(enemy.definition.base_xp, gate_rank)
+	if xp > 0:
+		PlayerStats.add_xp(xp)
+		ui.notify("+%d XP" % xp)
+	for kind in Rules.roll_drops(rng, enemy.definition.boss):
+		if PlayerStats.add_potion(kind) > 0:
+			ui.notify("%s potion found" % kind.capitalize())
+
+## Floating damage number: white, gold for a crit, with the zone for head hits.
+func damage_number(point: Vector3, amount: int, crit: bool, zone: String) -> void:
+	var label := World.label(world, ("%d!" if crit else "%d") % amount + ("  HEAD" if zone == "head" else ""), point + Vector3(0, 0.15, 0), 64 if crit else 48, World.GOLD if crit else Color("dadada"))
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	var tween := label.create_tween().set_parallel()
+	tween.tween_property(label, "position:y", label.position.y + 0.6, 0.8)
+	tween.tween_property(label, "modulate:a", 0.0, 0.8).set_delay(0.25)
+	tween.chain().tween_callback(label.queue_free)
+
+## A short burst of System Blue sparks (gold on a crit) where a blow lands.
+func spark(point: Vector3, crit: bool) -> void:
+	var burst := CPUParticles3D.new()
+	var mesh := QuadMesh.new()
+	mesh.size = Vector2(0.025, 0.025)
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	material.albedo_color = (World.GOLD if crit else World.BLUE) * 1.8
+	mesh.material = material
+	burst.mesh = mesh
+	burst.amount = 18
+	burst.lifetime = 0.35
+	burst.one_shot = true
+	burst.explosiveness = 1.0
+	burst.spread = 180.0
+	burst.initial_velocity_min = 1.5
+	burst.initial_velocity_max = 3.5
+	burst.gravity = Vector3(0, -4, 0)
+	world.add_child(burst)
+	burst.global_position = point
+	burst.emitting = true
+	get_tree().create_timer(1.0).timeout.connect(burst.queue_free)
+
+## The encounter asks for the next enemy: it appears at the dark far end of the room and walks in.
+func spawn_from_dark(enemy_type: String, slot: int) -> void:
+	var lanes := [-6.0, 2.0, -2.0, 6.0]
+	var enemy := spawn_enemy(enemy_type, Vector3(lanes[slot % lanes.size()] + rng.randf_range(-0.8, 0.8), 0.0, -9.0), false)
+	enemy.ready_at = now + 1.5
+
+func finish_warren() -> void:
+	Progress.register_gate_clear("warren")  # placeholder for gate.gd until Samaii's gates land
+	ui.notify("GATE CLEARED  /  THE EXIT PORTAL IS OPEN")
+	audio.play_cue("reward")
+	if is_instance_valid(world) and world.has_method("open_exit"):
+		var exit_area: Area3D = world.open_exit()
+		exit_area.collision_mask = 4
+		exit_area.body_entered.connect(func(body: Node3D): if body == player: call_deferred("change_room", "hub"))
+
+func _on_hub_portal_entered(body: Node3D) -> void:
+	if body == player and room == "hub" and Progress.portals_open and not menu_open:
+		call_deferred("change_room", "warren")
 
 func xr_blade_contact(enemy: CharacterBody3D) -> bool:
 	var point := Geometry3D.get_closest_point_to_segment(enemy.blade_tip(), player.weapon.global_position, player.blade_position)
@@ -489,11 +603,11 @@ func update_xr_combat() -> void:
 			enemy.attempts.append(now)
 			if player.xr_grip and player.right_speed >= 2.0 and now >= enemy.impact_at - PlayerStats.parry_window(Progress.is_mastered(enemy.definition.id)) and now <= enemy.impact_at:
 				enemy.parried = true
-		if room == "penalty" and player.xr_grip and player.right_speed > 1.5 and now >= xr_hit_at:
+		if room in ["penalty", "warren"] and player.xr_grip and player.right_speed > 1.5 and now >= xr_hit_at:
 			var closest := Geometry3D.get_closest_point_to_segment(enemy.global_position + Vector3(0, 1, 0), player.weapon.global_position, player.blade_position)
 			if closest.distance_to(enemy.global_position + Vector3(0, 1, 0)) < 0.5:
 				xr_hit_at = now + 0.25
-				hit_enemy(enemy, clampf((player.right_speed - 1.5) / 3.5, 0, 1.2))
+				hit_enemy(enemy, Rules.vr_swing(player.right_speed), closest)
 	lunge_samples.append({"time": now, "position": player.camera.position})
 	while not lunge_samples.is_empty() and now - float(lunge_samples[0].time) > 0.2:
 		lunge_samples.pop_front()

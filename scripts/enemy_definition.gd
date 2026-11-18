@@ -9,3 +9,7 @@ class_name EnemyDefinition
 @export var reach: float = 1.8
 @export var windup: float = 0.8
 @export var color: Color = Color("7b9b73")
+## Base XP before the gate-rank multiplier (GDD 2.2).
+@export var base_xp: int = 25
+## Bosses do not stagger, drop 2 health potions, and wind up faster below half HP.
+@export var boss: bool = false

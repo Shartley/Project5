@@ -2,6 +2,7 @@ extends CharacterBody3D
 ## Replaceable desktop/OpenXR test rig. Game rules stay in shared models.
 const Art = preload("res://scripts/world_builder.gd")
 const DAGGER = preload("res://assets/models/weapons/dagger/dagger.tscn")
+const Rules = preload("res://scripts/models/combat_rules.gd")
 signal intent(action: String)
 signal recentered
 var xr: bool = false
@@ -29,6 +30,8 @@ var bottle_near: bool = false
 var dash_remaining: float = 0.0
 var invulnerable: float = 0.0
 var swing_time: float = -1.0
+var swing_heavy: bool = false
+var charge: float = -1.0  # seconds the attack button has been held; -1 when not charging
 var movement_input: Vector2
 var is_blocking: bool = false
 var simulated_valid: bool = false
@@ -127,8 +130,10 @@ func advance(delta: float, stats: Node) -> void:
 	invulnerable = maxf(0.0, invulnerable - delta)
 	if swing_time >= 0.0:
 		swing_time += delta
-		if swing_time > 0.45:
+		if swing_time > Rules.attack_length(swing_heavy):
 			swing_time = -1.0
+	if charge >= 0.0:
+		charge += delta
 	if xr:
 		update_xr(delta, stats)
 	else:
@@ -136,7 +141,9 @@ func advance(delta: float, stats: Node) -> void:
 		is_blocking = controls_enabled and Input.is_action_pressed("block")
 		weapon.rotation = Vector3(0, 0, -0.8 if is_blocking else 0.0)
 		if swing_time >= 0.0:
-			weapon.rotation.x = -sin(swing_time / 0.45 * PI) * 1.5
+			weapon.rotation.x = -sin(swing_time / Rules.attack_length(swing_heavy) * PI) * (1.8 if swing_heavy else 1.5)
+		elif charge >= 0.0:
+			weapon.rotation.x = 0.6 * minf(1.0, charge / Rules.HEAVY_HOLD)  # draw the blade back while charging a heavy attack
 	if not controls_enabled:
 		stats.set_sprinting(false)
 		return
@@ -219,10 +226,12 @@ func dash(stats: Node) -> bool:
 	reset_pose_history()
 	return true
 
-func start_swing() -> bool:
+func start_swing(heavy: bool = false) -> bool:
+	charge = -1.0
 	if swing_time >= 0.0 or is_blocking or invulnerable > 0.0:
 		return false
 	swing_time = 0.0
+	swing_heavy = heavy
 	return true
 
 func place_at(location: Vector3) -> void:
@@ -239,5 +248,6 @@ func place_at(location: Vector3) -> void:
 	dash_remaining = 0.0
 	invulnerable = 0.0
 	swing_time = -1.0
+	charge = -1.0
 	bottle_kind = ""
 	reset_pose_history()

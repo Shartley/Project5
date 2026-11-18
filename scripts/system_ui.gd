@@ -220,6 +220,8 @@ func show_page(id: String) -> void:
 			elif game.room == "training":
 				button(body, "Configure training", func(): action.emit("configure", null))
 				button(body, "Leave training", func(): action.emit("hub", null))
+			elif game.room == "warren":
+				button(body, "Leave the Goblin Warren", func(): action.emit("hub", null))
 			button(body, "Status & potions", func(): action.emit("stats", null))
 			if OS.is_debug_build():
 				button(body, "Test controls / F1", func(): action.emit("debug_page", null))
@@ -306,7 +308,7 @@ func update_view(delta: float) -> void:
 	toast_left = maxf(0.0, toast_left - delta)
 	toast_label.visible = toast_left > 0.0
 	debug_indicator.text = ("TEST STATE MODIFIED  /  " if game.test_modified else "") + ("SIMULATED XR" if game.simulated_xr else ("OPENXR" if game.xr_enabled else "KEYBOARD + MOUSE"))
-	context.text = {"hub": "PERSONAL CHAMBER", "training": "PRACTICE CHAMBER", "penalty": "PENALTY ZONE"}.get(game.room, "SYSTEM")
+	context.text = {"hub": "PERSONAL CHAMBER", "training": "PRACTICE CHAMBER", "penalty": "PENALTY ZONE", "warren": "GOBLIN WARREN  /  RANK E"}.get(game.room, "SYSTEM")
 	objective.text = "LOW HP!  /  " if low_hp.visible else ""
 	objective.text += "SPRINT / DASH LOCKED" if PlayerStats.exhausted else "%d STAT POINTS AVAILABLE" % PlayerStats.points
 	controls.text = "WASD Move   Shift Sprint   LMB Attack   RMB Parry/Block   Space Dash\nTab Status   1/2/3 Potions   Esc Pause   F1 Test Controls"
@@ -320,5 +322,8 @@ func update_view(delta: float) -> void:
 		prompt.text = "[%s]\n%d / 10  /  %s" % [game.last_grade, game.practice.grades.size(), game.practice.last_report]
 	elif game.room == "penalty":
 		prompt.text = "SURVIVE  %02d:%02d\n%d / 4 CENTIPEDES" % [int(180 - game.penalty.elapsed) / 60, int(180 - game.penalty.elapsed) % 60, game.penalty.alive]
+	elif game.room == "warren":
+		var left: int = game.encounter.queue.size() + game.encounter.active
+		prompt.text = ("%s\n%d ENEMIES LEFT" % [game.encounter.title(), left]) if game.encounter.running else "GATE CLEARED\nWALK INTO THE EXIT PORTAL"
 	else:
-		prompt.text = "E / BEGIN WORKOUT" if Progress.workout_state == "available" else "PORTALS OPEN  /  ESC > TRAINING"
+		prompt.text = "E / BEGIN WORKOUT" if Progress.workout_state == "available" else "PORTALS OPEN  /  WALK INTO THE PORTAL"

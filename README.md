@@ -44,7 +44,7 @@ Progress lasts for the current launch. F1 > **Reset entire session** restores th
 | --- | --- |
 | WASD / mouse | Move / look |
 | Shift | Sprint; adds Fatigue |
-| Left click | Light dagger attack |
+| Left click / hold 0.5 s and release | Light / heavy dagger attack (heavy is ×1.2) |
 | Right click / hold | Parry / block |
 | Space | Dash; defaults backward without a movement key |
 | E | Start workout while on the blue pad |
@@ -64,6 +64,7 @@ The pause and status menus freeze gameplay. Close them to resume healing, recove
 4. **Fast mastery check:** F1 > Set up 6 Perfect / 3 late round. Parry the next Goblin attack. F1 also simulates gate clears and stored shadows to test the unlocked enemy catalog.
 5. **Penalty:** reset, begin a workout, and choose Esc > Abandon. Survive 180 seconds; one Centipede spawns every 15 seconds, with at most four alive. F1 > Advance Penalty clock 30 seconds skips waiting while retaining the production duration. Survival grants 50 XP; death grants none. Both return to the hub and open portals.
 6. **Reset:** F1 > Reset entire session clears XP, stats, inventory, workout status, unlocks, and mastery.
+7. **Goblin Warren (Rickey's combat and enemies):** once the workout or Penalty Zone opens the portals, walk into the hub portal. Room 1 (3 Kobolds, 1 Goblin), Room 2 (3 Goblins, 2 Kobolds) and the Goblin Chieftain come out of the dark at the far end one at a time, at most 6 alive and 2 attacking. Enemies circle at 3 m until they get an attack token. Head hits deal ×2, limbs ×0.6, crits ×1.5 (gold numbers); a hit for 25% of max HP staggers; a parry stuns for 1.5 s with 0 armor. Kills give XP × gate rank and can drop potions; bodies stay 6 s. At half HP the Chieftain winds up faster and calls 2 Kobolds once. Clearing the boss registers the gate clear (Rank D) and opens an exit portal home. Pause > Leave the Goblin Warren returns early. The rooms play as waves in one arena; Samaii's gate.gd replaces that travel.
 
 Test actions display **TEST STATE MODIFIED**. Portal lights reflect progression; full dungeon travel is reserved for Samaii's integration.
 
@@ -77,6 +78,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/run.ps1 -Mode Desktop
 
 # Deterministic gameplay, integration, and simulated-controller checks
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/run.ps1 -Mode Tests
+
+# Rickey's combat and enemy checks (any OS)
+godot --headless --xr-mode off --script res://tests/combat_tests.gd
 
 # Rendered game with real keyboard/mouse events and visual captures
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/run.ps1 -Mode VisualTests

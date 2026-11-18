@@ -1,0 +1,60 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/preview/black_hall_preview.gd" id="1_script"]
+[ext_resource type="Environment" path="res://assets/environment/black_hall.tres" id="2_env"]
+[ext_resource type="Material" path="res://assets/materials/warren_floor.tres" id="3_floor"]
+[ext_resource type="PackedScene" path="res://assets/models/enemies/goblin/goblin.tscn" id="4_goblin"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_floor"]
+size = Vector2(80, 80)
+
+[node name="BlackHallPreview" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource("2_env")
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_floor")
+surface_material_override/0 = ExtResource("3_floor")
+
+[node name="Pillars" type="Node3D" parent="."]
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.996, 0.087, 0, -0.087, 0.996, 0, 1.6, 3.2)
+fov = 80.0
+
+[node name="ColdLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.906, -0.413, 0.088, 0.000, 0.208, 0.978, -0.423, -0.887, 0.188, 0, 12, 0)
+light_color = Color(0.74, 0.78, 0.86, 1)
+light_energy = 0.32
+light_specular = 0.3
+shadow_enabled = true
+directional_shadow_max_distance = 40.0
+
+[node name="Goblins" type="Node3D" parent="."]
+
+[node name="GoblinWindup" parent="Goblins" instance=ExtResource("4_goblin")]
+transform = Transform3D(0.969, 0, 0.247, 0, 1, 0, -0.247, 0, 0.969, -0.75, 0, 0.6)
+start_animation = &"windup"
+
+[node name="GoblinNear" parent="Goblins" instance=ExtResource("4_goblin")]
+transform = Transform3D(0.955, 0, -0.296, 0, 1, 0, 0.296, 0, 0.955, 1.5, 0, -0.9)
+start_animation = &"walk"
+
+[node name="GoblinMid" parent="Goblins" instance=ExtResource("4_goblin")]
+transform = Transform3D(0.921, 0, 0.389, 0, 1, 0, -0.389, 0, 0.921, -3.0, 0, -4.8)
+start_animation = &"walk"
+
+[node name="GoblinFar" parent="Goblins" instance=ExtResource("4_goblin")]
+transform = Transform3D(0.980, 0, -0.199, 0, 1, 0, 0.199, 0, 0.980, 3.2, 0, -7.5)
+start_animation = &"idle"
+
+[node name="GoblinDeep" parent="Goblins" instance=ExtResource("4_goblin")]
+transform = Transform3D(1.000, 0, 0.000, 0, 1, 0, -0.000, 0, 1.000, 0.4, 0, -11.0)
+start_animation = &"walk"
+
+[node name="Reflections" type="ReflectionProbe" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+size = Vector3(60, 14, 60)
+interior = true

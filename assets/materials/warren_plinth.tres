@@ -1,0 +1,17 @@
+[gd_resource type="ORMMaterial3D" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/textures/medieval_blocks_03/medieval_blocks_03_diff_2k.jpg" id="1_diff"]
+[ext_resource type="Texture2D" path="res://assets/textures/medieval_blocks_03/medieval_blocks_03_arm_2k.jpg" id="2_arm"]
+[ext_resource type="Texture2D" path="res://assets/textures/medieval_blocks_03/medieval_blocks_03_nor_gl_2k.jpg" id="3_nor"]
+
+[resource]
+resource_name = "warren_plinth"
+albedo_color = Color(0.72, 0.73, 0.78, 1)
+albedo_texture = ExtResource("1_diff")
+orm_texture = ExtResource("2_arm")
+normal_enabled = true
+normal_texture = ExtResource("3_nor")
+uv1_scale = Vector3(0.6, 0.6, 0.6)
+uv1_triplanar = true
+uv1_world_triplanar = true
+texture_filter = 5

@@ -1,6 +1,7 @@
 extends CharacterBody3D
 ## Replaceable desktop/OpenXR test rig. Game rules stay in shared models.
 const Art = preload("res://scripts/world_builder.gd")
+const DAGGER = preload("res://assets/models/weapons/dagger/dagger.tscn")
 signal intent(action: String)
 signal recentered
 var xr: bool = false
@@ -62,9 +63,8 @@ func _ready() -> void:
 func make_weapon(parent: Node3D) -> Node3D:
 	var root := Node3D.new()
 	parent.add_child(root)
-	Art.box(root, Vector3(0, 0, 0.05), Vector3(0.04, 0.04, 0.16), Color("644d42"))
-	Art.box(root, Vector3(0, 0, -0.05), Vector3(0.16, 0.025, 0.035), Art.GOLD)
-	Art.box(root, Vector3(0, 0, -0.26), Vector3(0.055, 0.025, 0.4), Color("a9bcc4"))
+	# The dagger model's origin is the centre of its grip and its blade points along -Z.
+	root.add_child(DAGGER.instantiate())
 	return root
 
 func build_xr() -> void:

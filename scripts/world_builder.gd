@@ -3,7 +3,13 @@ extends Node3D
 const NAVY := Color("0b1a2e")
 const BLUE := Color("3fb8ff")
 const GOLD := Color("ffc94a")
+const PORTAL_SCENE = preload("res://assets/props/portal/portal.tscn")
+const PILLAR_SCENE = preload("res://assets/props/pillar.tscn")
+const CRYSTAL_SCENE = preload("res://assets/props/crystal_light.tscn")
+const FLOOR_MATERIAL = preload("res://assets/materials/warren_floor.tres")
+const STONE_MATERIAL = preload("res://assets/materials/warren_pillar.tres")
 var portal_material: StandardMaterial3D
+var portal: Node3D
 var pad: MeshInstance3D
 var punch_targets: Array[Node3D] = []
 
@@ -47,6 +53,9 @@ static func label(parent: Node3D, text: String, location: Vector3, size: int = 4
 
 func build(kind: String) -> void:
 	var extent := 3.0 if kind == "hub" else (5.0 if kind == "training" else 10.0)
+	if kind != "hub":
+		build_stone_room(kind, extent)
+		return
 	box(self, Vector3(0, -0.15, 0), Vector3(extent * 2, 0.3, extent * 2), Color("1c2e41"), true)
 	for x in range(-int(extent), int(extent) + 1):
 		box(self, Vector3(x, 0.006, 0), Vector3(0.014, 0.01, extent * 2), Color("2c455a"))
@@ -59,35 +68,59 @@ func build(kind: String) -> void:
 	for x in [-extent + 0.3, extent - 0.3]:
 		for z in [-extent + 0.3, extent - 0.3]:
 			box(self, Vector3(x, 1.4, z), Vector3(0.3, 2.8, 0.3), Color("344658"))
-	if kind == "hub":
-		build_hub()
-	else:
-		label(self, "PRACTICE CHAMBER" if kind == "training" else "PENALTY ZONE", Vector3(0, 2.3, -extent + 0.14), 58, BLUE if kind == "training" else GOLD)
-		label(self, "READ THE WIND-UP. FIND YOUR MOMENT." if kind == "training" else "SURVIVE 180 SECONDS", Vector3(0, 1.9, -extent + 0.13), 24)
+	build_hub()
+
+## Training and the Penalty Zone in the Black Hall look: stone floor and walls, pillars in the
+## corners with blue crystal lights, and the dark fog set by main.gd. Same size and collision as
+## the stand-in rooms.
+func build_stone_room(kind: String, extent: float) -> void:
+	var ground := box(self, Vector3(0, -0.15, 0), Vector3(extent * 2, 0.3, extent * 2), Color("1c2e41"), true)
+	ground.visible = false  # collision only; the textured plane below is what you see
+	var floor_mesh := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(extent * 2, extent * 2)
+	floor_mesh.mesh = plane
+	var floor_material: BaseMaterial3D = FLOOR_MATERIAL.duplicate()
+	floor_material.uv1_scale = Vector3(extent, extent, 1)  # one 2 m stone tile per 2 m
+	floor_mesh.material_override = floor_material
+	add_child(floor_mesh)
+	for side in [-1, 1]:
+		box(self, Vector3(side * extent, 1.5, 0), Vector3(0.2, 3.0, extent * 2), NAVY, true).material_override = STONE_MATERIAL
+		box(self, Vector3(0, 1.5, side * extent), Vector3(extent * 2, 3.0, 0.2), NAVY, true).material_override = STONE_MATERIAL
+		box(self, Vector3(side * (extent - 0.12), 0.12, 0), Vector3(0.035, 0.06, extent * 2), BLUE)
+		box(self, Vector3(0, 0.12, side * (extent - 0.12)), Vector3(extent * 2, 0.06, 0.035), BLUE)
+	var inset := extent - 1.0
+	for x in [-inset, inset]:
+		for z in [-inset, inset]:
+			var pillar: Node3D = PILLAR_SCENE.instantiate()
+			pillar.position = Vector3(x, 0, z)
+			add_child(pillar)
+			var to_centre := Vector3(-x, 0, -z).normalized()
+			var crystal: Node3D = CRYSTAL_SCENE.instantiate()
+			add_child(crystal)
+			crystal.position = Vector3(x, 2.1, z) + to_centre * 0.85
+			crystal.look_at(crystal.position - to_centre, Vector3.UP)
+	# One more crystal halfway along the side and far walls (not behind the spawn point). With the
+	# corners and the player's light that is 8 lights, the per-object limit on Quest.
+	for facing in [Vector3.BACK, Vector3.LEFT, Vector3.RIGHT]:
+		var crystal: Node3D = CRYSTAL_SCENE.instantiate()
+		add_child(crystal)
+		crystal.position = -facing * (extent - 0.15) + Vector3(0, 2.1, 0)
+		crystal.look_at(crystal.position - facing, Vector3.UP)
+	var probe := ReflectionProbe.new()  # gives the steel something to reflect
+	probe.size = Vector3(extent * 2, 4.0, extent * 2)
+	probe.position = Vector3(0, 1.8, 0)
+	probe.interior = true
+	add_child(probe)
+	label(self, "PRACTICE CHAMBER" if kind == "training" else "PENALTY ZONE", Vector3(0, 2.3, -extent + 0.14), 58, BLUE if kind == "training" else GOLD)
+	label(self, "READ THE WIND-UP. FIND YOUR MOMENT." if kind == "training" else "SURVIVE 180 SECONDS", Vector3(0, 1.9, -extent + 0.13), 24)
 
 func build_hub() -> void:
-	var frame := MeshInstance3D.new()
-	var torus := TorusMesh.new()
-	torus.inner_radius = 0.85
-	torus.outer_radius = 1.0
-	torus.rings = 16
-	torus.ring_segments = 6
-	frame.mesh = torus
-	frame.material_override = material(Color("3c536b"))
-	add_child(frame)
-	frame.position = Vector3(0, 1.2, -2.78)
-	frame.rotation.x = PI / 2.0
-	frame.scale = Vector3(0.8, 1.0, 1.1)
-	var disk := MeshInstance3D.new()
-	var circle := CylinderMesh.new()
-	circle.top_radius = 0.83
-	circle.bottom_radius = 0.83
-	circle.height = 0.025
-	circle.radial_segments = 24
-	disk.mesh = circle
-	portal_material = material(Color("183e58"), true)
-	disk.material_override = portal_material
-	frame.add_child(disk)
+	portal = PORTAL_SCENE.instantiate()
+	portal.scale = Vector3.ONE * 0.85  # fits the 6 m hub's back wall
+	add_child(portal)
+	portal.position = Vector3(0, 0, -2.62)
+	portal.active = false
 	label(self, "AWAKENING", Vector3(0, 2.65, -2.8), 55, BLUE)
 	label(self, "THE SYSTEM / PERSONAL CHAMBER", Vector3(0, 2.42, -2.8), 18)
 	pad = box(self, Vector3(0, 0.04, 0), Vector3(1.6, 0.08, 1.6), Color("224e64"))
@@ -104,5 +137,7 @@ func build_hub() -> void:
 		punch_targets.append(target)
 
 func set_portal_open(value: bool) -> void:
+	if portal:
+		portal.active = value
 	if portal_material:
 		portal_material.albedo_color = BLUE if value else Color("183e58")

@@ -1,0 +1,54 @@
+[gd_scene format=3]
+
+[ext_resource type="Material" path="res://assets/materials/crystal.tres" id="1_crystal"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_long"]
+top_radius = 0.0
+bottom_radius = 0.075
+height = 0.62
+radial_segments = 6
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_mid"]
+top_radius = 0.0
+bottom_radius = 0.06
+height = 0.42
+radial_segments = 6
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_short"]
+top_radius = 0.0
+bottom_radius = 0.05
+height = 0.3
+radial_segments = 5
+rings = 1
+
+[node name="CrystalLight" type="Node3D"]
+
+[node name="ShardA" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.97, -0.24, 0, 0.24, 0.97, 0, 0, 0, 1, 0, 0.28, 0)
+mesh = SubResource("CylinderMesh_long")
+surface_material_override/0 = ExtResource("1_crystal")
+
+[node name="ShardB" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.87, 0.5, 0, -0.5, 0.87, 0, 0, 0, 1, 0.1, 0.17, 0.03)
+mesh = SubResource("CylinderMesh_mid")
+surface_material_override/0 = ExtResource("1_crystal")
+
+[node name="ShardC" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.94, 0, 0.34, 0, 1, 0, -0.34, 0, 0.94, -0.12, 0.12, 0.06)
+mesh = SubResource("CylinderMesh_short")
+surface_material_override/0 = ExtResource("1_crystal")
+
+[node name="ShardD" type="MeshInstance3D" parent="."]
+transform = Transform3D(0.77, 0.34, -0.54, -0.42, 0.91, 0, 0.49, 0.22, 0.84, 0.02, 0.12, -0.08)
+mesh = SubResource("CylinderMesh_short")
+surface_material_override/0 = ExtResource("1_crystal")
+
+[node name="Light" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0.35)
+light_color = Color(0.247, 0.722, 1, 1)
+light_energy = 2.6
+light_specular = 0.6
+omni_range = 9.0
+omni_attenuation = 1.1

@@ -1,0 +1,48 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/preview/walkthrough.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://assets/preview/black_hall_preview.tscn" id="2_hall"]
+[ext_resource type="PackedScene" path="res://assets/props/portal/portal.tscn" id="3_portal"]
+[ext_resource type="PackedScene" path="res://assets/models/weapons/dagger/dagger.tscn" id="4_dagger"]
+
+[node name="Walkthrough" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="Hall" parent="." instance=ExtResource("2_hall")]
+
+[node name="Portal" parent="." instance=ExtResource("3_portal")]
+transform = Transform3D(0.9659, 0, 0.2588, 0, 1, 0, -0.2588, 0, 0.9659, -2.4, 0, -8)
+
+[node name="XROrigin3D" type="XROrigin3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3.2)
+
+[node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0)
+
+[node name="LeftHand" type="XRController3D" parent="XROrigin3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 1, -0.5)
+tracker = &"left_hand"
+pose = &"grip"
+
+[node name="Dagger" parent="XROrigin3D/LeftHand" instance=ExtResource("4_dagger")]
+
+[node name="RightHand" type="XRController3D" parent="XROrigin3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 1, -0.5)
+tracker = &"right_hand"
+pose = &"grip"
+
+[node name="Dagger" parent="XROrigin3D/RightHand" instance=ExtResource("4_dagger")]
+
+[node name="Desktop" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3.2)
+
+[node name="Camera3D" type="Camera3D" parent="Desktop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+fov = 75.0
+near = 0.02
+
+[node name="DaggerLeft" parent="Desktop/Camera3D" instance=ExtResource("4_dagger")]
+transform = Transform3D(0.7836, -0.5887, -0.1985, 0.1638, 0.5040, -0.8480, 0.5993, 0.6321, 0.4913, -0.21, -0.25, -0.42)
+
+[node name="DaggerRight" parent="Desktop/Camera3D" instance=ExtResource("4_dagger")]
+transform = Transform3D(0.7836, 0.5887, 0.1985, -0.1638, 0.5040, -0.8480, -0.5993, 0.6321, 0.4913, 0.21, -0.25, -0.42)

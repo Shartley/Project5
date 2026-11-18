@@ -9,6 +9,7 @@ const Practice = preload("res://scripts/models/practice.gd")
 const Penalty = preload("res://scripts/models/penalty.gd")
 const Gestures = preload("res://scripts/models/gesture_detector.gd")
 const Audio = preload("res://scripts/system_audio.gd")
+const DUNGEON_ENVIRONMENT = preload("res://assets/environment/black_hall.tres")
 const XR_PANEL_SIZE := Vector2(1.0, 0.5625)
 const XR_PANEL_DISTANCE := 0.75
 var room: String = "hub"
@@ -45,6 +46,10 @@ var xr_error: String = ""
 var xr_scroll_at: float = 0.0
 var xr_wall_time: float = 0.0
 var xr_was_tracked: bool = false
+var world_environment: WorldEnvironment
+var hub_environment: Environment
+var sun: DirectionalLight3D
+var player_light: OmniLight3D
 
 func _ready() -> void:
 	preload("res://scripts/input_bindings.gd").install()
@@ -120,10 +125,36 @@ func setup_environment() -> void:
 	data.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	environment.environment = data
 	add_child(environment)
-	var sun := DirectionalLight3D.new()
+	world_environment = environment
+	hub_environment = data
+	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-50, -25, 0)
 	sun.light_energy = 1.0
 	add_child(sun)
+
+## The hub keeps its bright System look; dungeon rooms use the dark Black Hall fog and a dim,
+## cool light from above so the crystals do most of the lighting.
+func apply_room_mood(kind: String) -> void:
+	if not is_instance_valid(world_environment):
+		return
+	var dungeon := kind != "hub"
+	world_environment.environment = DUNGEON_ENVIRONMENT if dungeon else hub_environment
+	sun.rotation_degrees = Vector3(-78, -25, 0) if dungeon else Vector3(-50, -25, 0)
+	sun.light_energy = 0.5 if dungeon else 1.0
+	sun.light_color = Color(0.74, 0.78, 0.86) if dungeon else Color.WHITE
+	sun.shadow_enabled = dungeon
+	# A dim light carried with the player so enemies walking toward you are not black silhouettes.
+	if not is_instance_valid(player_light) and is_instance_valid(player) and is_instance_valid(player.camera):
+		player_light = OmniLight3D.new()
+		player_light.position = Vector3(0, 0.35, 0.25)
+		player_light.light_color = Color(0.75, 0.82, 1.0)
+		player_light.light_energy = 0.7
+		player_light.omni_range = 7.0
+		player_light.omni_attenuation = 1.4
+		player_light.light_specular = 0.8
+		player.camera.add_child(player_light)
+	if is_instance_valid(player_light):
+		player_light.visible = dungeon
 
 func change_room(kind: String) -> void:
 	clear_enemies()
@@ -135,6 +166,7 @@ func change_room(kind: String) -> void:
 	world.name = "Content"
 	add_child(world)
 	world.build(kind)
+	apply_room_mood(kind)
 	world.set_portal_open(Progress.portals_open)
 	player.in_hub = kind == "hub"
 	player.place_at(Vector3(0, 0.05, 1.9 if kind == "hub" else 2.5))

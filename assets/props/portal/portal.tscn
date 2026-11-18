@@ -1,0 +1,88 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://assets/props/portal/portal.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://assets/props/portal/portal_frame.glb" id="2_frame"]
+[ext_resource type="Shader" path="res://assets/props/portal/portal_swirl.gdshader" id="3_shader"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_swirl"]
+frequency = 0.02
+fractal_octaves = 4
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_swirl"]
+width = 256
+height = 256
+seamless = true
+noise = SubResource("FastNoiseLite_swirl")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_swirl"]
+shader = ExtResource("3_shader")
+shader_parameter/core_color = Color(0.004, 0.012, 0.03, 1)
+shader_parameter/glow_color = Color(0.247, 0.722, 1, 1)
+shader_parameter/intensity = 2.4
+shader_parameter/swirl_speed = 0.25
+shader_parameter/twist = 1.6
+shader_parameter/noise_tex = SubResource("NoiseTexture2D_swirl")
+
+[sub_resource type="QuadMesh" id="QuadMesh_swirl"]
+size = Vector2(1.34, 2.2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spark"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+billboard_mode = 3
+
+[sub_resource type="QuadMesh" id="QuadMesh_spark"]
+material = SubResource("StandardMaterial3D_spark")
+size = Vector2(0.025, 0.025)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_enter"]
+size = Vector3(1.2, 2, 0.6)
+
+[node name="Portal" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="Frame" parent="." instance=ExtResource("2_frame")]
+
+[node name="Swirl" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.08, 0)
+cast_shadow = 0
+mesh = SubResource("QuadMesh_swirl")
+surface_material_override/0 = SubResource("ShaderMaterial_swirl")
+
+[node name="Glow" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0.7)
+light_color = Color(0.247, 0.722, 1, 1)
+light_energy = 2.5
+omni_range = 7.0
+omni_attenuation = 1.2
+
+[node name="Sparks" type="CPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1.65, 0, 0, 0, 1, 0, 1.08, 0.05)
+amount = 48
+lifetime = 2.2
+mesh = SubResource("QuadMesh_spark")
+emission_shape = 6
+emission_ring_axis = Vector3(0, 0, 1)
+emission_ring_height = 0.05
+emission_ring_radius = 0.64
+emission_ring_inner_radius = 0.5
+direction = Vector3(0, 0, 1)
+spread = 180.0
+gravity = Vector3(0, 0, 0)
+initial_velocity_min = 0.02
+initial_velocity_max = 0.08
+radial_accel_min = -0.35
+radial_accel_max = -0.2
+tangential_accel_min = 0.2
+tangential_accel_max = 0.4
+scale_amount_min = 0.5
+scale_amount_max = 1.4
+color = Color(0.4, 1.15, 1.6, 1)
+
+[node name="EnterArea" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="EnterArea"]
+shape = SubResource("BoxShape3D_enter")

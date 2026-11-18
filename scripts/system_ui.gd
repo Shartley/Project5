@@ -211,6 +211,8 @@ func show_page(id: String) -> void:
 			paragraph("Rocky's playable slice: build your stats, finish the daily workout, and master enemy timing.")
 			button(body, "Enter chamber" if id == "welcome" else "Resume", func(): action.emit("close", null))
 			if game.room == "hub":
+				if Progress.portals_open:
+					button(body, "Enter the Goblin Warren", func(): action.emit("warren", null))
 				if Progress.workout_state == "available":
 					button(body, "Begin daily workout", func(): action.emit("workout", null))
 				if Progress.workout_state != "active":

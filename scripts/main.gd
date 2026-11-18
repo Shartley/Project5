@@ -288,6 +288,8 @@ func handle_ui(id: String, payload: Variant) -> void:
 			set_menu("training")
 		"start_training": start_training(payload.types, payload.speed)
 		"hub": change_room("hub")
+		"warren":
+			if Progress.portals_open: change_room("warren")
 		"potion":
 			if xr_enabled:
 				player.bottle_kind = payload

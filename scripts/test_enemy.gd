@@ -6,8 +6,9 @@ extends CharacterBody3D
 const Art = preload("res://scripts/world_builder.gd")
 const Rules = preload("res://scripts/models/combat_rules.gd")
 const GOBLIN_MODEL = preload("res://assets/models/enemies/goblin/goblin.tscn")
+const KOBOLD_MODEL = preload("res://assets/models/enemies/kobold/kobold.tscn")
 ## Enemy types that already have real models, with the scale to show them at.
-const MODEL_SCALE := {"goblin": 1.0, "chieftain": 1.5}
+const MODEL_SCALE := {"goblin": 1.0, "chieftain": 1.5, "kobold": 1.0}
 var definition: Resource
 var training: bool = false
 var hp: float = 40.0
@@ -53,17 +54,17 @@ func setup(data: Resource, practice: bool) -> void:
 	var label_height := 1.92
 	if MODEL_SCALE.has(definition.id):
 		var size := float(MODEL_SCALE[definition.id])
-		model = GOBLIN_MODEL.instantiate()
+		model = (KOBOLD_MODEL if definition.id == "kobold" else GOBLIN_MODEL).instantiate()
 		model.scale = Vector3.ONE * size
 		model.rotation.y = PI  # the model faces +Z; this body faces -Z after look_at
 		add_child(model)
 		torso = MeshInstance3D.new()  # invisible: kept so the shared tint and boss scaling still work
 		add_child(torso)
-		body_height = 1.3 * size
+		body_height = (1.0 if definition.id == "kobold" else 1.3) * size
 		capsule.height = maxf(1.5, body_height)
 		capsule.radius = 0.32 * sqrt(size)
 		collider.position.y = capsule.height * 0.5
-		label_height = 1.45 * size + 0.25
+		label_height = (1.1 if definition.id == "kobold" else 1.45) * size + 0.25
 	else:
 		torso = Art.box(self, Vector3(0, 0.85, 0), Vector3(0.65, 0.72, 0.4), definition.color)
 		Art.box(self, Vector3(0, 1.4, 0), Vector3(0.43, 0.4, 0.4), definition.color.lightened(0.15))
@@ -115,12 +116,16 @@ func approach(target: Vector3, delta: float, wants_attack: bool = true) -> void:
 		if anim_lock <= 0.0:
 			play_model(&"walk" if Vector2(velocity.x, velocity.z).length() > 0.1 else &"idle")
 
-func play_model(anim: StringName, lock: float = 0.0) -> void:
+## The wind-up animation is authored at 0.8 s (WINDUP_CLIP); faster or slower wind-ups play it
+## at a matching speed so the raised weapon always comes down on the impact.
+const WINDUP_CLIP := 0.8
+
+func play_model(anim: StringName, lock: float = 0.0, speed: float = 1.0) -> void:
 	if model == null or (anim == model_anim and lock <= 0.0):
 		return
 	model_anim = anim
 	anim_lock = lock
-	model.play(anim, 0.08 if lock > 0.0 else 0.2)
+	model.play(anim, 0.08 if lock > 0.0 else 0.2, speed)
 
 func begin_attack(now: float, speed: float, id: int, target: Vector3) -> void:
 	state = "windup"
@@ -134,7 +139,7 @@ func begin_attack(now: float, speed: float, id: int, target: Vector3) -> void:
 	warning.visible = training  # the countdown is a practice aid; in gates the red glow and sound warn
 	torso.material_override = Art.material(Color("e5383b"))
 	swung = false
-	play_model(&"windup", 99.0)
+	play_model(&"windup", 99.0, WINDUP_CLIP / maxf(0.05, impact_at - now - 0.2))
 
 func animate_windup(now: float) -> void:
 	var progress := clampf((now - windup_start) / (impact_at - windup_start), 0.0, 1.0)

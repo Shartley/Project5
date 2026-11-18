@@ -36,7 +36,7 @@ Open **http://127.0.0.1:8065/**. Serve the export over HTTP; opening `index.html
 
 Progress lasts for the current launch. F1 > **Reset entire session** restores the starting state. The player rig and most attackers are still simple stand-ins so Rocky's work is testable independently of Rickey's combat and Samaii's gates/extraction.
 
-**Art:** the dagger, the Goblin and Goblin Chieftain models, the hub's gate portal, and the stone look of the Practice Chamber and Penalty Zone are the real art (sources and licences in [assets/CREDITS.md](assets/CREDITS.md); every model is rebuilt by a Blender script in `tools/blender/`). The other enemy types are still boxes until their models are made. A free-roam art walkthrough and a short Mac/Quest guide are in [docs/how-to-run.md](docs/how-to-run.md).
+**Art:** the dagger, the Kobold, Goblin and Goblin Chieftain models, the hub's gate portal, and the stone look of the Practice Chamber and Penalty Zone are the real art (sources and licences in [assets/CREDITS.md](assets/CREDITS.md); every model is rebuilt by a Blender script in `tools/blender/`). The other enemy types are still boxes until their models are made. A free-roam art walkthrough and a short Mac/Quest guide are in [docs/how-to-run.md](docs/how-to-run.md).
 
 ## Desktop controls
 

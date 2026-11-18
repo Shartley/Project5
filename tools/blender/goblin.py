@@ -26,6 +26,9 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 V = Vector
 
+# Used in output file names; tools/blender/kobold.py sets this to "kobold" and reuses this script.
+NAME = "goblin"
+
 # A metaball's visible surface sits well inside its radius: with threshold 0.6 and stiffness 2 an
 # isolated ball shows at ~0.575 of its radius. Radii below are the sizes we want to SEE, so they
 # are scaled up by this factor when the elements are created.
@@ -111,6 +114,8 @@ J = {
     "neck_base": V((0, -0.12, 1.0)),
     "neck_top": V((0, -0.17, 1.065)),
     "head": V((0, -0.20, 1.10)),
+    "head_top": V((0, -0.215, 1.21)),
+    "clavicle": V((0.03, -0.1, 0.985)),
     # left arm (right side mirrored)
     "shoulder": V((0.15, -0.08, 0.965)),
     "elbow": V((0.29, -0.055, 0.79)),
@@ -632,8 +637,10 @@ def build_loincloth():
         front = max(0.0, -math.sin(ang))       # 1 at the front (-Y)
         back = max(0.0, math.sin(ang))
         flare = 1.0 + (1.0 - t) * 0.28
-        rx, ry = 0.142 * flare, 0.128 * flare
-        z_top, z_bot = 0.665, 0.5 - 0.09 * front ** 3 - 0.05 * back ** 4
+        k = J["hip"].x / 0.085                 # 1.0 for the goblin; smaller bodies get a smaller wrap
+        rx, ry = 0.142 * k * flare, 0.128 * k * flare
+        z_top = J["pelvis"].z + 0.045
+        z_bot = J["pelvis"].z - 0.12 - (0.09 * front ** 3 + 0.05 * back ** 4) * k
         hem = (1.0 - t) * random.uniform(-0.018, 0.012) if t < 0.2 else 0.0
         v.co.x = math.cos(ang) * rx
         v.co.y = math.sin(ang) * ry + 0.008
@@ -650,7 +657,8 @@ def build_loincloth():
     bpy.context.view_layer.objects.active = o
     for m in list(o.modifiers):
         bpy.ops.object.modifier_apply(modifier=m.name)
-    bpy.ops.mesh.primitive_torus_add(major_radius=0.146, minor_radius=0.011, major_segments=48, minor_segments=8, location=(0, 0.006, 0.658))
+    k = J["hip"].x / 0.085
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.146 * k, minor_radius=0.011, major_segments=48, minor_segments=8, location=(0, 0.006, J["pelvis"].z + 0.038))
     belt = bpy.context.active_object
     belt.scale = (1.0, 0.9, 1.0)
     bpy.ops.object.transform_apply(scale=True)
@@ -759,7 +767,7 @@ def bake_maps(sources, target, size, out_prefix):
     bake.cage_extrusion = 0.012
     bake.max_ray_distance = 0.04
     bake.margin = 6
-    mat = bpy.data.materials.new("goblin_body")
+    mat = bpy.data.materials.new(out_prefix + "_body")
     nt = mat.node_tree
     bsdf = nt.nodes.get("Principled BSDF")
     images = {}
@@ -805,7 +813,7 @@ def bone_layout():
     pa, fd, w, n = hand_frame()
     toe_tip = J["ball"] + V((0.005, -0.07, -0.012))
     left = {
-        "clavicle": ((0.03, -0.1, 0.985), J["shoulder"], "chest"),
+        "clavicle": (J["clavicle"], J["shoulder"], "chest"),
         "upper_arm": (J["shoulder"], J["elbow"], "clavicle"),
         "forearm": (J["elbow"], J["wrist"], "upper_arm"),
         "hand": (J["wrist"], pa + fd * 0.03, "forearm"),
@@ -817,11 +825,11 @@ def bone_layout():
     }
     bones = {
         "root": ((0, 0, 0), (0, 0.12, 0), None),
-        "hips": (J["pelvis"] + V((0, 0, -0.02)), (0, -0.01, 0.73), "root"),
-        "spine": ((0, -0.01, 0.73), J["ribs"], "hips"),
+        "hips": (J["pelvis"] + V((0, 0, -0.02)), J["waist"], "root"),
+        "spine": (J["waist"], J["ribs"], "hips"),
         "chest": (J["ribs"], J["neck_base"], "spine"),
         "neck": (J["neck_base"], J["neck_top"], "chest"),
-        "head": (J["neck_top"], (0, -0.215, 1.21), "neck"),
+        "head": (J["neck_top"], J["head_top"], "neck"),
     }
     for name, (h, t, parent) in left.items():
         lp = parent if parent in ("chest", "hips") else parent + ".L"
@@ -1115,7 +1123,7 @@ def stage_full():
         lo = duplicate(src, src.name + "_lo")
         tag_group(lo, tag)
         parts_lo.append(lo)
-    body = join(parts_lo, "Goblin")
+    body = join(parts_lo, NAME.capitalize())
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.mesh.dissolve_degenerate(threshold=0.0001)
@@ -1126,7 +1134,7 @@ def stage_full():
     unwrap(body)
     print("game mesh tris:", sum(len(p.vertices) - 2 for p in body.data.polygons))
 
-    bake_maps([skin_hi, cloth_hi, club_hi, teeth, claws], body, 2048, "goblin")
+    bake_maps([skin_hi, cloth_hi, club_hi, teeth, claws], body, 2048, NAME)
 
     rig = build_armature()
     skin_to(rig, body)
@@ -1134,6 +1142,7 @@ def stage_full():
     bone_names = [b.name for b in rig.data.bones]
     copy_nearest_weights(body, "claws", "body", bone_names)
     copy_nearest_weights(body, "teeth", "body", bone_names)
+    copy_nearest_weights(body, "cloth", "body", bone_names)  # the wrap follows the hips and thighs under it
     skin_to(rig, eyes, only_bone="head")
     for tag in ("body", "cloth", "club", "teeth", "claws"):
         g = body.vertex_groups.get(tag)
@@ -1144,7 +1153,7 @@ def stage_full():
     for o in (skin_hi, cloth_hi, club_hi, teeth, claws):
         o.hide_render = True
         o.hide_set(True)
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT_DIR, "goblin_full.blend"))
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT_DIR, NAME + "_full.blend"))
     export_glb(rig, body, eyes)
     render_beauty(scene, rig, body, eyes)
 
@@ -1155,7 +1164,7 @@ def export_glb(rig, body, eyes):
         o.hide_set(False)
         o.select_set(True)
     bpy.context.view_layer.objects.active = rig
-    path = os.path.join(OUT_DIR, "goblin.glb")
+    path = os.path.join(OUT_DIR, NAME + ".glb")
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True,
                               export_animations=True, export_animation_mode="NLA_TRACKS",
                               export_skins=True, export_yup=True)
@@ -1168,17 +1177,18 @@ def render_beauty(scene, rig, body, eyes):
     for t in ad.nla_tracks:
         t.mute = t.name != "windup"
     scene.frame_set(24)
-    render_views(scene, "goblin", target=V((0, -0.05, 0.7)), dist=2.4)
+    render_views(scene, NAME, target=V((0, -0.05, J["pelvis"].z + 0.08)), dist=2.4 * J["pelvis"].z / 0.62)
     for t in ad.nla_tracks:
         t.mute = t.name != "walk"
     scene.frame_set(6)
-    scene.render.filepath = os.path.join(OUT_DIR, "goblin_walk.png")
+    scene.render.filepath = os.path.join(OUT_DIR, NAME + "_walk.png")
     bpy.ops.render.render(write_still=True)
 
 
-if STAGE == "sculpt":
-    stage_sculpt()
-elif STAGE == "full":
-    stage_full()
-else:
-    raise SystemExit("unknown stage " + STAGE)
+if __name__ == "__main__":
+    if STAGE == "sculpt":
+        stage_sculpt()
+    elif STAGE == "full":
+        stage_full()
+    else:
+        raise SystemExit("unknown stage " + STAGE)

@@ -51,3 +51,4 @@ textures/vram_compression/import_etc2_astc=true
 
 openxr/default_action_map="res://resources/quest_actions.tres"
 shaders/enabled=true
+openxr/enabled.android=true
